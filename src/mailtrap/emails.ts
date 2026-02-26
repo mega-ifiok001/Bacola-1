@@ -1,5 +1,6 @@
 "use server";
 
+import nodemailer from "nodemailer";
 import {
   ADD_MANAGER_EMAIL_TEMPLATE,
   PASSWORD_RESET_REQUEST_TEMPLATE,
@@ -8,120 +9,158 @@ import {
   VERIFICATION_EMAIL_TEMPLATE,
   VERIFICATION_EMAIL_TEMPLATE_ADMIN,
 } from "./emailTemplates";
-import { mailtrapClient, sender } from "./mailtrap";
 
+// ✅ Mailtrap SMTP Transporter (Email Testing)
+const transporter = nodemailer.createTransport({
+  host: process.env.MAILTRAP_HOST,
+  port: Number(process.env.MAILTRAP_PORT),
+  auth: {
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS,
+  },
+});
+
+// ✅ Common sender
+const FROM_EMAIL = '"Bacola" <no-reply@bacola.com>';
+
+// =============================
+// VERIFICATION EMAIL (USER)
+// =============================
 export async function sendVerificationCode(email: string, code: string) {
-  const recipient = [{ email }];
-
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
-      subject: "Verify your email",
-      html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", code),
-      category: "Email verification",
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
+      subject: "Your Bacola verification code",
+      html: VERIFICATION_EMAIL_TEMPLATE.replace(
+        "{verificationCode}",
+        code
+      ),
     });
+
+    console.log(`[DEV] Verification code sent to ${email}: ${code}`);
   } catch (err) {
+    console.error("MAILTRAP SMTP ERROR:", err);
     throw new Error("Error sending code by email");
   }
 }
 
-export async function sendVerificationAdminCode(email: string, code: string) {
-  const recipient = [{ email }];
-
+// =============================
+// VERIFICATION EMAIL (ADMIN)
+// =============================
+export async function sendVerificationAdminCode(
+  email: string,
+  code: string
+) {
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
       subject: "Verify your email",
       html: VERIFICATION_EMAIL_TEMPLATE_ADMIN.replace(
         "{verificationCode}",
         code
       ),
-      category: "Email verification",
     });
   } catch (err) {
-    throw new Error("Error sending code by email");
+    console.error(err);
+    throw new Error("Error sending admin verification email");
   }
 }
 
+// =============================
+// WELCOME EMAIL
+// =============================
 export async function sendWelcomeEmail(email: string, name: string) {
-  const recipient = [{ email }];
-
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
-      template_uuid: "b754d942-b823-40c1-9891-a226b485d43f",
-      template_variables: {
-        company_info_name: "Bacola",
-        name: name,
-      },
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
+      subject: "Welcome to Bacola",
+      html: `<h2>Welcome ${name}</h2><p>We're happy to have you at Bacola.</p>`,
     });
   } catch (err) {
-    throw new Error("Error sending welcome by email");
+    console.error(err);
+    throw new Error("Error sending welcome email");
   }
 }
 
-export async function sendPasswordRestEmail(email: string, resetURL: string) {
-  const recipient = [{ email }];
-
+// =============================
+// PASSWORD RESET REQUEST
+// =============================
+export async function sendPasswordRestEmail(
+  email: string,
+  resetURL: string
+) {
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
       subject: "Reset your password",
-      html: PASSWORD_RESET_REQUEST_TEMPLATE.replace("{resetURL}", resetURL),
-      category: "Password reset",
+      html: PASSWORD_RESET_REQUEST_TEMPLATE.replace(
+        "{resetURL}",
+        resetURL
+      ),
     });
   } catch (err) {
-    throw new Error(`Error sending password reset email`);
+    console.error(err);
+    throw new Error("Error sending password reset email");
   }
 }
 
+// =============================
+// PASSWORD RESET SUCCESS
+// =============================
 export async function sendResetSuccessEmail(email: string) {
-  const recipient = [{ email }];
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
       subject: "Password Reset Successful",
       html: PASSWORD_RESET_SUCCESS_TEMPLATE,
-      category: "Password Reset",
     });
   } catch (err) {
-    throw new Error(`Error sending password reset email`);
+    console.error(err);
+    throw new Error("Error sending reset success email");
   }
 }
 
+// =============================
+// REPLACE EMAIL
+// =============================
 export async function sendReplaceEmail(email: string) {
-  const recipient = [{ email }];
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
-      subject: "Notice replace your email",
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
+      subject: "Notice: Replace your email",
       html: REPLACE_EMAIL_TEMPLATE.replace("{replaceEmail}", email),
-      category: "Replace email",
     });
   } catch (err) {
-    console.log(err);
-    throw new Error(`Error sending replace email`);
+    console.error(err);
+    throw new Error("Error sending replace email");
   }
 }
 
-export async function sendNewManagerAdd(email: string, managerEmail: string) {
-  const recipient = [{ email }];
+// =============================
+// NEW MANAGER ADDED
+// =============================
+export async function sendNewManagerAdd(
+  email: string,
+  managerEmail: string
+) {
   try {
-    await mailtrapClient.send({
-      from: sender,
-      to: recipient,
+    await transporter.sendMail({
+      from: FROM_EMAIL,
+      to: email,
       subject: "Add new Manager email",
-      html: ADD_MANAGER_EMAIL_TEMPLATE.replace("{addManager}", managerEmail),
-      category: "New Manager",
+      html: ADD_MANAGER_EMAIL_TEMPLATE.replace(
+        "{addManager}",
+        managerEmail
+      ),
     });
   } catch (err) {
-    console.log(err);
-    throw new Error(`Error sending add new manager email`);
+    console.error(err);
+    throw new Error("Error sending add manager email");
   }
 }

@@ -305,17 +305,16 @@ export const actionDeleteCategory = async (id: string) => {
 export const actionGetCategories = async () => {
   try {
     const categories = await prisma.category.findMany().catch(() => {
-      throw new Error("Server not responding");
+      console.error("Server not responding");
+      return []; // Return empty array if DB fails
     });
 
-    return categories;
+    return categories || []; // Always ensure an array
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Something went wrong!";
-    return { errMsg: message };
+    console.error("Something went wrong fetching categories:", err);
+    return []; // Return empty array on any errorƒp
   }
 };
-
 export const actionGetCategoryName = async (name: string) => {
   try {
     const category = await prisma.category

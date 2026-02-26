@@ -47,7 +47,7 @@ async function page() {
     const shippingResult = await actionGetShipping();
     shipping = typeof shippingResult === "string" ? shippingResult : "";
 
-    if (!shipping) throw new Error("Filed fetch text Appbar");
+    if (!shipping) throw new Error("Failed fetch text Appbar");
   } catch (err) {
     console.error("Something went Error!", err);
   }

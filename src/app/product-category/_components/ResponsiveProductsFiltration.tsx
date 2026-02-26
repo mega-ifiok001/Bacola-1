@@ -183,44 +183,91 @@ const FilterContent = ({
 
   const { setFilter, setProducts } = useProduct();
 
-  const fetchFilteredProducts = async (restPagination?: number) => {
-    setLoading(true);
+ const fetchFilteredProducts = async (resetPagination?: number) => {
+  setLoading(true);
 
-    try {
-      // Always prioritize the passed category if it exists
-      const categoriesToFilter = category?.name
-        ? [category.name]
-        : selectedCategories.size > 0
-        ? Array.from(selectedCategories)
-        : [];
+  try {
+    // 1. Determine categories to send
+    const categoriesToFilter = category?.name
+      ? [category.name]
+      : selectedCategories.size > 0
+      ? Array.from(selectedCategories)
+      : [];
 
-      if (restPagination) setPagination(1);
-
-      const productsFilter = await actionFilter({
-        categories: categoriesToFilter,
-        priceRange,
-        sortBy: selectedSort,
-        page: restPagination ? 1 : pagination,
-      });
-
-      if ("currentPage" in productsFilter) {
-        setFilter({
-          currentPage: productsFilter.currentPage || 0,
-          totalPages: productsFilter.totalPages || 0,
-          totalProducts: productsFilter.totalProducts || 0,
-        });
-      }
-      if ("errMsg" in productsFilter) {
-        if (productsFilter.errMsg) throw new Error(productsFilter.errMsg);
-      }
-
-      setProducts(productsFilter.products as unknown as UserProduct[]);
-    } catch (err) {
-      console.error("Filter error:", err);
-    } finally {
-      setLoading(false);
+    // 2. Reset to page 1 if requested (better name: resetPagination)
+    const targetPage = resetPagination ? 1 : pagination;
+    if (resetPagination) {
+      setPagination(1);
     }
-  };
+
+    // 3. Prepare the payload (for clarity & debugging)
+    const payload = {
+      categories: categoriesToFilter,
+      priceRange,
+      sortBy: selectedSort,
+      page: targetPage,
+    };
+
+    // ────────────────────────────────────────────────
+    //              VERY IMPORTANT: Log what we SEND
+    // ────────────────────────────────────────────────
+    console.log("→ Sending to actionFilter:", {
+      categoriesSent: payload.categories,
+      priceRangeSent: payload.priceRange,
+      sortBySent: payload.sortBy,
+      pageSent: payload.page,
+      // optional: full payload for deep inspection
+      fullPayload: payload,
+    });
+
+    // 4. Make the actual request
+    const productsFilter = await actionFilter(payload);
+
+    // ────────────────────────────────────────────────
+    //              Log what we RECEIVE
+    // ────────────────────────────────────────────────
+    console.log("← actionFilter returned:", {
+      productsCount: productsFilter?.products?.length ?? "missing products key",
+      totalProducts: productsFilter?.totalProducts ?? 0,
+      currentPage: productsFilter?.currentPage ?? 0,
+      totalPages: productsFilter?.totalPages ?? 0,
+      firstFewProducts:
+        productsFilter?.products?.slice(0, 3)?.map((p) => ({
+          id: p.id,
+          name: p.name || "(no name)",
+          price: p.price ?? "no price",
+        })) ?? [],
+      error: "errMsg" in productsFilter ? productsFilter.errMsg : undefined,
+      // full response (collapse in console if too big)
+      // rawResponse: productsFilter,
+    });
+
+    // 5. Handle error shape
+    if ("errMsg" in productsFilter && productsFilter.errMsg) {
+      throw new Error(productsFilter.errMsg);
+    }
+
+    // 6. Update filter state safely
+    if ("currentPage" in productsFilter) {
+      setFilter({
+        currentPage: productsFilter.currentPage ?? 0,
+        totalPages: productsFilter.totalPages ?? 0,
+        totalProducts: productsFilter.totalProducts ?? 0,
+      });
+    }
+
+    // 7. Update products (safe empty fallback)
+    setProducts((productsFilter.products ?? []) as unknown as UserProduct[]);
+
+  } catch (err) {
+    console.error("Filter error:", err);
+    // Optional: reset UI to empty state on error
+    setProducts([]);
+    setFilter({ currentPage: 0, totalPages: 0, totalProducts: 0 });
+  } finally {
+    setLoading(false);
+  }
+};
 
   // re-fetch products pagination
   useEffect(() => {

@@ -14,88 +14,68 @@ import { revalidatePath } from "next/cache";
 export const actionAddToCart = async (prodId: string) => {
   try {
     const user = await getUser();
-    if (!user) return;
+    if (!user) throw new Error("User not found");
 
-    const product = await prisma.product
-      .findUnique({
-        where: { id: prodId },
-      })
-      .catch((err) => {
-        throw new Error("Server not responding");
-      });
+    const product = await prisma.product.findUnique({
+      where: { id: prodId },
+    });
 
     if (!product) throw new Error("Product not found");
 
-    let userWithCart = await prisma.user
-      .findUnique({
-        where: { id: user.id },
-        include: { Cart: { include: { items: true } } },
-      })
-      .catch((err) => {
-        throw new Error("Server not responding");
-      });
+    // Fetch user with cart
+    let userWithCart = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { Cart: { include: { items: true } } },
+    });
 
     if (!userWithCart) throw new Error("User not found");
 
+    // Create cart if it doesn't exist
     if (!userWithCart.Cart) {
-      userWithCart = await prisma.user
-        .update({
-          where: { id: user.id },
-          data: {
-            Cart: {
-              create: {},
-            },
-          },
-          include: { Cart: { include: { items: true } } },
-        })
-        .catch((err) => {
-          throw new Error("Server not responding");
-        });
+      userWithCart = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          Cart: { create: {} },
+        },
+        include: { Cart: { include: { items: true } } },
+      });
     }
 
     const cart = userWithCart.Cart;
     if (!cart) throw new Error("Cart not found");
 
-    const existingCartItem = cart.items.find(
-      (item) => item.productId === prodId
-    );
+    const existingCartItem = cart.items.find((item) => item.productId === prodId);
 
-    const itemPrice = product.offer ? product.offer : product.price;
+    const itemPrice = product.offer ?? product.price;
 
     if (existingCartItem) {
-      await prisma.cartItem
-        .update({
-          where: { id: existingCartItem.id },
-          data: {
-            quantity: existingCartItem.quantity + 1,
-            totalPrice: existingCartItem.totalPrice + itemPrice,
-          },
-        })
-        .catch((err) => {
-          throw new Error("Server not responding");
-        });
-
-      // Update cart total
+      // Update existing item
+      await prisma.cartItem.update({
+        where: { id: existingCartItem.id },
+        data: {
+          quantity: existingCartItem.quantity + 1,
+          totalPrice: existingCartItem.totalPrice + itemPrice,
+        },
+      });
     } else {
-      await prisma.cartItem
-        .create({
-          data: {
-            cartId: cart.id,
-            productId: product.id,
-            quantity: 1,
-            totalPrice: itemPrice,
-          },
-        })
-        .catch((err) => {
-          throw new Error("Server not responding");
-        });
+      // Add new item
+      await prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId: product.id,
+          quantity: 1,
+          totalPrice: itemPrice,
+        },
+      });
     }
 
+    // Revalidate homepage (or cart page) after update
     revalidatePath("/");
+
     return { success: true };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Something went wrong!";
+    console.error("Add to cart error:", err);
+    const message = err instanceof Error ? err.message : "Something went wrong!";
     return { errMsg: message };
   }
 };

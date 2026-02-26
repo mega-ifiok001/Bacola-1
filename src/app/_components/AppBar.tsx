@@ -10,13 +10,12 @@ async function AppBar() {
   let categories: Category[] = [];
   let cart = null;
   let textAppbar: string = "";
-  try {
-    categories = (await actionGetCategories()) as Category[];
-    if ("errMsg" in categories)
-      if (categories.errMsg) throw new Error(categories.errMsg as string);
-  } catch (err) {
-    console.error("Something went wrong!", err);
-  }
+ try {
+  categories = await actionGetCategories();
+} catch (err) {
+  console.error("Failed to fetch categories:", err);
+  categories = [];
+}
 
   try {
     cart = await actionGetCartUser();

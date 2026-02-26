@@ -50,6 +50,7 @@ function CreateButton({
 
       if (data?.redirect) {
         router.push(data.redirect);
+        console.log(data)
       }
       if (data.errMsg) {
         throw new Error(data.errMsg);
